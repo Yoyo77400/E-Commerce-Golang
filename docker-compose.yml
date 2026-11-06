@@ -1,0 +1,33 @@
+name: go-ecommerce
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-shop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shop}
+      POSTGRES_DB: ${POSTGRES_DB:-shop}
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shop} -d ${POSTGRES_DB:-shop}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  server:
+    build: .
+    command: ["server"]
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-shop}:${POSTGRES_PASSWORD:-shop}@db:5432/${POSTGRES_DB:-shop}?sslmode=disable
+      HTTP_ADDR: ":8080"
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@esgi.fr}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme123}
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
