@@ -4,12 +4,12 @@ services:
   db:
     image: postgres:17-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-shop}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shop}
-      POSTGRES_DB: ${POSTGRES_DB:-shop}
+      POSTGRES_USER: ${POSTGRES_USER:-shopify}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shopify}
+      POSTGRES_DB: ${POSTGRES_DB:-shopify}
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shop} -d ${POSTGRES_DB:-shop}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shopify} -d ${POSTGRES_DB:-shopify}"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -22,7 +22,7 @@ services:
     build: .
     command: ["server"]
     environment:
-      DATABASE_URL: postgres://${POSTGRES_USER:-shop}:${POSTGRES_PASSWORD:-shop}@db:5432/${POSTGRES_DB:-shop}?sslmode=disable
+      DATABASE_URL: postgres://${POSTGRES_USER:-shopify}:${POSTGRES_PASSWORD:-shopify}@db:5432/${POSTGRES_DB:-shopify}?sslmode=disable
       HTTP_ADDR: ":8080"
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@esgi.fr}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme123}
@@ -31,3 +31,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+volumes: 
+  db-data:

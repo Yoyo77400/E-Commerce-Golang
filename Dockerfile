@@ -2,24 +2,22 @@ FROM golang:1.27-alpine AS build
 
 WORKDIR /src
 
-COPY go.mod go.sum ./
+COPY go.mod go.sum* ./
 RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/ ./cmd/...
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server
 
 FROM alpine:3.22
 
 RUN adduser -D -u 1000 shop
 
-COPY --from=build /out/server /out/client /out/admin /out/sshd /usr/local/bin/
-
-RUN mkdir -p /home/shop/.ssh && chown -R shop:shop /home/shop
+COPY --from=build /out/server /usr/local/bin/server
 
 USER shop
 WORKDIR /home/shop
 
-EXPOSE 8080 2222 2223
+EXPOSE 8080
 
 CMD ["server"]
