@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/yoyo77400/E-Commerce-Go/internal/api"
-	"github.com/yoyo77400/E-Commerce-Go/internal/database"
 	"github.com/yoyo77400/E-Commerce-Go/internal/store"
 )
 
@@ -44,13 +43,13 @@ func run() error {
 		addr = defaultHTTPAddr
 	}
 
-	db, err := database.Open(ctx, databaseURL)
+	db, err := store.Open(ctx, databaseURL)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
-	if err := database.Migrate(ctx, db); err != nil {
+	if err := store.Migrate(ctx, db); err != nil {
 		return err
 	}
 
