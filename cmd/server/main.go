@@ -11,7 +11,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/yoyo77400/E-Commerce-Go/internal/api"
 	"github.com/yoyo77400/E-Commerce-Go/internal/database"
+	"github.com/yoyo77400/E-Commerce-Go/internal/store"
 )
 
 const (
@@ -54,6 +56,7 @@ func run() error {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", healthHandler(db))
+	api.Register(mux, store.New(db))
 
 	server := &http.Server{
 		Addr:         addr,
