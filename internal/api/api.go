@@ -32,6 +32,7 @@ func Register(mux *http.ServeMux, st *store.Store) {
 	mux.HandleFunc("GET /products/{reference}", a.getProduct)
 
 	// Administration (admin connecté)
+	mux.HandleFunc("POST /admin/products", a.requireAdmin(a.createProduct))
 	mux.HandleFunc("GET /admin/users", a.requireAdmin(a.listUsers))
 	mux.HandleFunc("GET /admin/users/{id}", a.requireAdmin(a.getUser))
 }
