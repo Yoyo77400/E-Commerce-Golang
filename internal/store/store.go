@@ -13,7 +13,10 @@ import (
 //go:embed schema.sql
 var schema string
 
-var ErrNotFound = errors.New("Not found")
+var (
+	ErrNotFound = errors.New("Not found")
+	ErrConflict = errors.New("Already exists")
+)
 
 type Store struct {
 	db *sql.DB
