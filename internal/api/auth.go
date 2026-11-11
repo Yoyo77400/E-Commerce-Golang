@@ -58,7 +58,7 @@ func (a *API) register(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(w, err)
 		return
 	}
-	user, err := a.store.CreateUser(r.Context(), in.Email, hash)
+	user, err := a.store.CreateUser(r.Context(), in.Email, hash, "customer", false)
 	if errors.Is(err, store.ErrConflict) {
 		writeError(w, http.StatusConflict, "email already registered")
 		return

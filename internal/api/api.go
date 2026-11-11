@@ -35,6 +35,10 @@ func Register(mux *http.ServeMux, st *store.Store) {
 	mux.HandleFunc("POST /admin/products", a.requireAdmin(a.createProduct))
 	mux.HandleFunc("GET /admin/users", a.requireAdmin(a.listUsers))
 	mux.HandleFunc("GET /admin/users/{id}", a.requireAdmin(a.getUser))
+	mux.HandleFunc("POST /admin/users", a.requireAdmin(a.createUser))
+	mux.HandleFunc("PATCH /admin/users/{id}", a.requireAdmin(a.updateUser))
+	mux.HandleFunc("DELETE /admin/users/{id}", a.requireAdmin(a.deleteUser))
+	mux.HandleFunc("POST /admin/users/{id}/confirm", a.requireAdmin(a.confirmUser))
 }
 
 // Handler qui reçoit en plus l'utilisateur connecté

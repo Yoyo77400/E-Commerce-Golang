@@ -69,13 +69,15 @@ func (s *Store) GetUserByEmail(ctx context.Context, email string) (User, string,
 	return u, hash, nil
 }
 
-// Crée un client non confirmé. Si l'email existe déjà, ON CONFLICT n'insère rien et return error
-func (s *Store) CreateUser(ctx context.Context, email, passwordHash string) (User, error) {
+// Crée un utilisateur avec un rôle ("customer" ou "admin"), confirmé ou non.
+// Si l'email existe déjà, ON CONFLICT n'insère rien, aucune ligne n'est renvoyée → ErrConflict.
+func (s *Store) CreateUser(ctx context.Context, email, passwordHash, role string, confirmed bool) (User, error) {
 	var u User
 	err := s.db.QueryRowContext(ctx,
-		`INSERT INTO users (email, password_hash) VALUES ($1, $2)
+		`INSERT INTO users (email, password_hash, role, confirmed_at)
+		VALUES ($1, $2, $3, CASE WHEN $4::boolean THEN now() END)
 		ON CONFLICT (email) DO NOTHING
-		RETURNING id, email, role, confirmed_at, created_at`, email, passwordHash,
+		RETURNING id, email, role, confirmed_at, created_at`, email, passwordHash, role, confirmed,
 	).Scan(&u.ID, &u.Email, &u.Role, &u.ConfirmedAt, &u.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return User{}, ErrConflict
@@ -114,6 +116,49 @@ func (s *Store) SetPassword(ctx context.Context, id int64, passwordHash string) 
 		"UPDATE users SET password_hash = $2 WHERE id = $1", id, passwordHash)
 	if err != nil {
 		return fmt.Errorf("set password %d: %w", id, err)
+	}
+	return nil
+}
+
+// Modifie l'email et le rôle. ErrConflict si l'email est déjà pris par un autre compte.
+func (s *Store) UpdateUser(ctx context.Context, id int64, email, role string) (User, error) {
+	var taken bool
+	err := s.db.QueryRowContext(ctx,
+		"SELECT EXISTS (SELECT 1 FROM users WHERE email = $1 AND id <> $2)", email, id,
+	).Scan(&taken)
+	if err != nil {
+		return User{}, fmt.Errorf("check email: %w", err)
+	}
+	if taken {
+		return User{}, ErrConflict
+	}
+
+	var u User
+	err = s.db.QueryRowContext(ctx,
+		`UPDATE users SET email = $2, role = $3 WHERE id = $1
+		RETURNING id, email, role, confirmed_at, created_at`, id, email, role,
+	).Scan(&u.ID, &u.Email, &u.Role, &u.ConfirmedAt, &u.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return User{}, ErrNotFound
+	}
+	if err != nil {
+		return User{}, fmt.Errorf("update user %d: %w", id, err)
+	}
+	return u, nil
+}
+
+// Supprime un utilisateur (ses sessions, codes, paniers et commandes partent avec : ON DELETE CASCADE)
+func (s *Store) DeleteUser(ctx context.Context, id int64) error {
+	res, err := s.db.ExecContext(ctx, "DELETE FROM users WHERE id = $1", id)
+	if err != nil {
+		return fmt.Errorf("delete user %d: %w", id, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("delete user %d: %w", id, err)
+	}
+	if n == 0 {
+		return ErrNotFound
 	}
 	return nil
 }
