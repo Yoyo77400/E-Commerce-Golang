@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/yoyo77400/E-Commerce-Go/internal/api"
+	"github.com/yoyo77400/E-Commerce-Go/internal/auth"
 	"github.com/yoyo77400/E-Commerce-Go/internal/store"
 )
 
@@ -53,9 +54,14 @@ func run() error {
 		return err
 	}
 
+	st := store.New(db)
+	if err := createAdmin(ctx, st); err != nil {
+		return err
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", healthHandler(db))
-	api.Register(mux, store.New(db))
+	api.Register(mux, st)
 
 	server := &http.Server{
 		Addr:         addr,
@@ -81,6 +87,21 @@ func run() error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 	return server.Shutdown(shutdownCtx)
+}
+
+// Crée le compte admin défini par ADMIN_EMAIL / ADMIN_PASSWORD s'il n'existe pas encore
+func createAdmin(ctx context.Context, st *store.Store) error {
+	email := os.Getenv("ADMIN_EMAIL")
+	password := os.Getenv("ADMIN_PASSWORD")
+	if email == "" || password == "" {
+		log.Println("ADMIN_EMAIL / ADMIN_PASSWORD not set: no admin account created")
+		return nil
+	}
+	hash, err := auth.HashPassword(password)
+	if err != nil {
+		return err
+	}
+	return st.EnsureAdmin(ctx, email, hash)
 }
 
 func healthHandler(db *sql.DB) http.HandlerFunc {
