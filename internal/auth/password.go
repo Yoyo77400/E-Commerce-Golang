@@ -16,7 +16,7 @@ const (
 	hashLength = 32      // taille du hash en octets
 )
 
-// Renvoie "sel$hash" en hexa => stocker en base
+// Renvoie "salt$hash" en hexa => stocker en base
 func HashPassword(password string) (string, error) {
 	salt := make([]byte, saltLength)
 	rand.Read(salt)
@@ -28,7 +28,7 @@ func HashPassword(password string) (string, error) {
 	return hex.EncodeToString(salt) + "$" + hex.EncodeToString(hash), nil
 }
 
-// Recalcule le hash avec le sel stocké et compare avec le hash en base
+// Recalcule le hash avec le salt stocké et compare avec le hash en base
 func CheckPassword(password, stored string) bool {
 	saltHex, hashHex, ok := strings.Cut(stored, "$")
 	if !ok {
