@@ -26,3 +26,16 @@ type CartItem struct {
 func (item CartItem) SubtotalCents() int64 {
 	return item.UnitPriceTTCCents * int64(item.Quantity)
 }
+
+type Cart struct {
+	Reference string     `json:"reference"`
+	Items     []CartItem `json:"items"`
+}
+
+func (cart Cart) TotalTTCCents() int64 {
+	var total int64 = 0
+	for _, item := range cart.Items {
+		total += item.SubtotalCents()
+	}
+	return total;
+}
