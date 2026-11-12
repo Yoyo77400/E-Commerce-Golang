@@ -16,3 +16,13 @@ func (in AddCartItemInput) Validate() error {
 	}
 	return nil
 }
+
+type CartItem struct {
+	ProductReference  string `json:"product_reference"`
+	Quantity          int    `json:"quantity"`
+	UnitPriceTTCCents int64  `json:"unit_price_ttc_cents"`
+}
+
+func (item CartItem) SubtotalCents() int64 {
+	return item.UnitPriceTTCCents * int64(item.Quantity)
+}
