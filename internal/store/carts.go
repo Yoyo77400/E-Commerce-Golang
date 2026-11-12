@@ -1,6 +1,10 @@
 package store
 
-import "errors"
+import (
+	"context"
+	"database/sql"
+	"errors"
+)
 
 type AddCartItemInput struct {
 	ProductReference string `json:"product_reference"`
@@ -37,5 +41,23 @@ func (cart Cart) TotalTTCCents() int64 {
 	for _, item := range cart.Items {
 		total += item.SubtotalCents()
 	}
-	return total;
+	return total
+}
+
+func (s *Store) GetOpenCartReference(
+	ctx context.Context,
+	userID int64,
+) (string, error) {
+	var reference string
+	err := s.db.QueryRowContext(ctx,
+		`SELECT reference FROM carts WHERE user_id = $1 AND status = 'open'`, userID,
+	).Scan(&reference)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
+
+	if err != nil {
+		return "", err
+	}
+	return reference, nil
 }
