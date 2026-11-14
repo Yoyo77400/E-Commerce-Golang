@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 )
 
 type AddCartItemInput struct {
@@ -60,4 +61,41 @@ func (s *Store) GetOpenCartReference(
 		return "", err
 	}
 	return reference, nil
+}
+
+// Crée un panier vide. ErrConflict si l'utilisateur a déjà un panier ouvert.
+func (s *Store) CreateCart(ctx context.Context, userID int64) (string, error) {
+	reference := GenerateUniqueReferenceID(PrefixCart)
+	result, err := s.db.ExecContext(ctx,
+		`INSERT INTO carts (reference, user_id) VALUES ($1, $2)
+		ON CONFLICT (user_id) WHERE status = 'open' DO NOTHING`,
+		reference, userID,
+	)
+	if err != nil {
+		return "", fmt.Errorf("create cart: %w", err)
+	}
+
+	inserted, err := result.RowsAffected()
+	if err != nil {
+		return "", fmt.Errorf("count inserted carts: %w", err)
+	}
+	if inserted == 0 {
+		return "", ErrConflict
+	}
+	return reference, nil
+}
+
+// Réutilise le panier ouvert, ou en crée un si l'utilisateur n'en a pas encore.
+func (s *Store) GetOrCreateOpenCartReference(ctx context.Context, userID int64) (string, error) {
+	reference, err := s.GetOpenCartReference(ctx, userID)
+	if !errors.Is(err, ErrNotFound) {
+		return reference, err
+	}
+
+	reference, err = s.CreateCart(ctx, userID)
+	if errors.Is(err, ErrConflict) {
+		// Une autre requête a pu créer le panier depuis notre première lecture.
+		return s.GetOpenCartReference(ctx, userID)
+	}
+	return reference, err
 }
