@@ -99,3 +99,38 @@ func (s *Store) GetOrCreateOpenCartReference(ctx context.Context, userID int64) 
 	}
 	return reference, err
 }
+
+// Charge le panier ouvert de l'utilisateur avec les prix TTC actuels des produits.
+func (s *Store) GetOpenCart(ctx context.Context, userID int64) (Cart, error) {
+	reference, err := s.GetOpenCartReference(ctx, userID)
+	if err != nil {
+		return Cart{}, err
+	}
+
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT p.reference, ci.quantity, p.price_ttc_cents
+		FROM cart_items ci
+		JOIN carts c ON c.id = ci.cart_id
+		JOIN products p ON p.id = ci.product_id
+		WHERE c.reference = $1 AND c.user_id = $2 AND c.status = 'open'
+		ORDER BY p.reference`,
+		reference, userID,
+	)
+	if err != nil {
+		return Cart{}, fmt.Errorf("load cart items: %w", err)
+	}
+	defer rows.Close()
+
+	cart := Cart{Reference: reference, Items: []CartItem{}}
+	for rows.Next() {
+		var item CartItem
+		if err := rows.Scan(&item.ProductReference, &item.Quantity, &item.UnitPriceTTCCents); err != nil {
+			return Cart{}, fmt.Errorf("scan cart item: %w", err)
+		}
+		cart.Items = append(cart.Items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return Cart{}, fmt.Errorf("read cart items: %w", err)
+	}
+	return cart, nil
+}
