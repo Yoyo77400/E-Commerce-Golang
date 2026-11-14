@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yoyo77400/E-Commerce-Go/internal/auth"
-	"github.com/yoyo77400/E-Commerce-Go/internal/store"
+	"github.com/yoyo77400/E-Commerce-Golang/internal/auth"
+	"github.com/yoyo77400/E-Commerce-Golang/internal/store"
 )
 
 const (

@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/yoyo77400/E-Commerce-Go/internal/store"
+	"github.com/yoyo77400/E-Commerce-Golang/internal/store"
 )
 
 // GET /products?q=&category=&min_price=&max_price=&min_ttc=&max_ttc=

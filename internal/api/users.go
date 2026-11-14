@@ -6,8 +6,8 @@ import (
 	"net/mail"
 	"strconv"
 
-	"github.com/yoyo77400/E-Commerce-Go/internal/auth"
-	"github.com/yoyo77400/E-Commerce-Go/internal/store"
+	"github.com/yoyo77400/E-Commerce-Golang/internal/auth"
+	"github.com/yoyo77400/E-Commerce-Golang/internal/store"
 )
 
 func (a *API) listUsers(w http.ResponseWriter, r *http.Request, _ store.User) {
