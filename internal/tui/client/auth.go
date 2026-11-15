@@ -66,7 +66,7 @@ func (m *Model) codeField(title string) huh.Field {
 // ---------- Ouverture des formulaires ----------
 
 func (m *Model) openLogin() tea.Cmd {
-	return m.openForm("Connexion", m.loginCmd,
+	return m.openForm("Connexion", screenHome, m.loginCmd,
 		m.emailField(),
 		passwordField("Mot de passe", &m.password),
 	)
@@ -75,17 +75,17 @@ func (m *Model) openLogin() tea.Cmd {
 func (m *Model) openRegister() tea.Cmd {
 	fields := []huh.Field{m.emailField()}
 	fields = append(fields, m.newPasswordFields()...)
-	return m.openForm("Créer un compte", m.registerCmd, fields...)
+	return m.openForm("Créer un compte", screenHome, m.registerCmd, fields...)
 }
 
 func (m *Model) openConfirm() tea.Cmd {
-	return m.openForm("Confirmer mon compte", m.confirmCmd,
+	return m.openForm("Confirmer mon compte", screenHome, m.confirmCmd,
 		m.codeField("Code de confirmation"),
 	)
 }
 
 func (m *Model) openForgot() tea.Cmd {
-	return m.openForm("Mot de passe oublié", m.forgotCmd,
+	return m.openForm("Mot de passe oublié", screenHome, m.forgotCmd,
 		m.emailField(),
 	)
 }
@@ -93,7 +93,7 @@ func (m *Model) openForgot() tea.Cmd {
 func (m *Model) openReset() tea.Cmd {
 	fields := []huh.Field{m.codeField("Code reçu par email")}
 	fields = append(fields, m.newPasswordFields()...)
-	return m.openForm("Nouveau mot de passe", m.resetCmd, fields...)
+	return m.openForm("Nouveau mot de passe", screenHome, m.resetCmd, fields...)
 }
 
 // ---------- Appels HTTP (exécutés en arrière-plan par bubbletea) ----------

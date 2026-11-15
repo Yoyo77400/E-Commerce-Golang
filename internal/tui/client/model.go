@@ -3,6 +3,8 @@ package client
 import (
 	"fmt"
 
+	"charm.land/bubbles/v2/spinner"
+	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
 
@@ -11,9 +13,11 @@ import (
 
 // Écrans de l'application
 const (
-	screenHome = "home"
-	screenForm = "form"
-	screenMenu = "menu"
+	screenHome    = "home"
+	screenForm    = "form"
+	screenMenu    = "menu"
+	screenCatalog = "catalog"
+	screenProduct = "product"
 )
 
 const (
@@ -22,11 +26,12 @@ const (
 	choiceConfirm  = "Confirmer mon compte"
 	choiceForgot   = "Mot de passe oublié"
 	choiceQuit     = "Quitter"
+	choiceCatalog  = "Catalogue"
 	choiceLogout   = "Se déconnecter"
 )
 
 var homeChoices = []string{choiceLogin, choiceRegister, choiceConfirm, choiceForgot, choiceQuit}
-var menuChoices = []string{choiceLogout}
+var menuChoices = []string{choiceCatalog, choiceLogout}
 
 type Model struct {
 	api    *apiclient.Client
@@ -36,6 +41,7 @@ type Model struct {
 	// Écran formulaire : le formulaire affiché et l'action lancée à sa validation
 	form      *huh.Form
 	formTitle string
+	formBack  string // écran affiché si on quitte le formulaire avec échap
 	submit    func() tea.Cmd
 
 	// Valeurs saisies dans les formulaires (huh écrit directement dedans)
@@ -44,14 +50,33 @@ type Model struct {
 	passwordConfirm string
 	code            string
 
+	// Catalogue : filtres saisis (prix en euros, tels que tapés), résultats et produit ouvert
+	search   searchInputs
+	products []apiclient.Product
+	table    table.Model
+	selected apiclient.Product
+
 	user    apiclient.User
 	loading bool
+	spinner spinner.Model
 	err     error
 	info    string
 }
 
 func New(api *apiclient.Client) *Model {
-	return &Model{api: api, screen: screenHome}
+	return &Model{
+		api:     api,
+		screen:  screenHome,
+		table:   newProductTable(),
+		spinner: spinner.New(spinner.WithSpinner(spinner.Dot), spinner.WithStyle(selectedStyle)),
+	}
+}
+
+// Passe en chargement et lance l'appel HTTP en même temps que l'animation du spinner
+func (m *Model) startLoading(cmd tea.Cmd) tea.Cmd {
+	m.loading = true
+	m.err = nil
+	return tea.Batch(cmd, m.spinner.Tick)
 }
 
 func (m *Model) Init() tea.Cmd {
@@ -65,6 +90,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
+	case spinner.TickMsg:
+		// Le spinner ne s'anime que pendant un chargement : sans nouveau tick, il s'arrête
+		if !m.loading {
+			return m, nil
+		}
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
+	case productsResultMsg:
+		return m.handleProducts(msg)
 	case loginResultMsg:
 		return m.handleLogin(msg)
 	case registerResultMsg:
@@ -88,6 +123,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateForm(msg)
 	case screenMenu:
 		return m.updateMenu(msg)
+	case screenCatalog:
+		return m.updateCatalog(msg)
+	case screenProduct:
+		return m.updateProduct(msg)
 	}
 	return m, nil
 }
@@ -101,6 +140,10 @@ func (m *Model) View() tea.View {
 		content = m.viewForm()
 	case screenMenu:
 		content = m.viewMenu()
+	case screenCatalog:
+		content = m.viewCatalog()
+	case screenProduct:
+		content = m.viewProduct()
 	}
 
 	view := tea.NewView(appStyle.Render(content))
@@ -165,9 +208,10 @@ func (m *Model) viewHome() string {
 
 // ---------- Écran formulaire (commun à tous les formulaires) ----------
 
-func (m *Model) openForm(title string, submit func() tea.Cmd, fields ...huh.Field) tea.Cmd {
+func (m *Model) openForm(title, back string, submit func() tea.Cmd, fields ...huh.Field) tea.Cmd {
 	m.screen = screenForm
 	m.formTitle = title
+	m.formBack = back
 	m.submit = submit
 	m.form = huh.NewForm(huh.NewGroup(fields...))
 	return m.form.Init()
@@ -180,15 +224,14 @@ func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if key, ok := msg.(tea.KeyPressMsg); ok && key.String() == "esc" {
 		m.err = nil
 		m.info = ""
-		m.goHome()
+		m.screen = m.formBack
+		m.cursor = 0
 		return m, nil
 	}
 
 	_, cmd := m.form.Update(msg)
 	if m.form.State == huh.StateCompleted {
-		m.loading = true
-		m.err = nil
-		return m, m.submit()
+		return m, m.startLoading(m.submit())
 	}
 	return m, cmd
 }
@@ -196,7 +239,7 @@ func (m *Model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *Model) viewForm() string {
 	s := titleStyle.Render(m.formTitle) + "\n"
 	if m.loading {
-		return s + "Chargement…"
+		return s + m.spinner.View() + " Chargement…"
 	}
 	s += m.form.View()
 	s += m.renderMessages()
@@ -219,6 +262,8 @@ func (m *Model) updateMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.cursor = moveCursor(m.cursor, 1, len(menuChoices))
 	case "enter":
 		switch menuChoices[m.cursor] {
+		case choiceCatalog:
+			return m, m.openCatalog()
 		case choiceLogout:
 			return m, m.logoutCmd()
 		}
