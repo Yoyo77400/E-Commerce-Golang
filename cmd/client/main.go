@@ -1,13 +1,14 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
-	"flag"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 
+	"github.com/yoyo77400/E-Commerce-Golang/internal/apiclient"
+	"github.com/yoyo77400/E-Commerce-Golang/internal/tui/client"
 )
 
 func main() {
@@ -23,4 +24,9 @@ func main() {
 	apiURL := flag.String("api", defaultURL, "base URL of the API")
 	flag.Parse()
 
+	program := tea.NewProgram(client.New(apiclient.New(*apiURL)))
+	if _, err := program.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
