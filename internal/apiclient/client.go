@@ -12,8 +12,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/yoyo77400/E-Commerce-Golang/internal/api"
 )
 
 const requestTimeOut = 10 * time.Second
@@ -91,7 +89,7 @@ func (c *Client) do(ctx context.Context, method, path string, body, out any) err
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= http.StatusBadRequest {
-		var apiErr api.ErrorResponse
+		var apiErr errorResponse
 		_ = json.NewDecoder(resp.Body).Decode(&apiErr)
 		return &APIError{StatusCode: resp.StatusCode, Message: apiErr.Error}
 	}
@@ -106,87 +104,82 @@ func (c *Client) do(ctx context.Context, method, path string, body, out any) err
 
 // --- authentification ---
 
-// Register crée un compte. Un code de confirmation est envoyé à l'adresse.
-func (c *Client) Register(ctx context.Context, email, password string) (api.UserDTO, error) {
-	var user api.UserDTO
-	err := c.do(ctx, http.MethodPost, "/api/auth/register",
-		api.RegisterRequest{Email: email, Password: password}, &user)
+func (c *Client) Register(ctx context.Context, email, password string) (User, error) {
+	var user User
+	err := c.do(ctx, http.MethodPost, "/auth/register",
+		map[string]string{"email": email, "password": password}, &user)
 	return user, err
 }
 
-// Confirm valide le code reçu à l'inscription.
-func (c *Client) Confirm(ctx context.Context, email, code string) error {
-	return c.do(ctx, http.MethodPost, "/api/auth/confirm",
-		api.ConfirmRequest{Email: email, Code: code}, nil)
+func (c *Client) Confirm(ctx context.Context, code string) error {
+	return c.do(ctx, http.MethodPost, "/auth/confirm",
+		map[string]string{"code": code}, nil)
 }
 
-// Login ouvre une session et enregistre le jeton dans le client.
-func (c *Client) Login(ctx context.Context, email, password string) (api.LoginResponse, error) {
-	var out api.LoginResponse
-	err := c.do(ctx, http.MethodPost, "/api/auth/login",
-		api.LoginRequest{Email: email, Password: password}, &out)
+func (c *Client) Login(ctx context.Context, email, password string) (LoginResponse, error) {
+	var out LoginResponse
+	err := c.do(ctx, http.MethodPost, "/auth/login",
+		map[string]string{"email": email, "password": password}, &out)
 	if err != nil {
-		return api.LoginResponse{}, err
+		return LoginResponse{}, err
 	}
 	c.SetToken(out.Token)
 	return out, nil
 }
 
-// Logout révoque la session et oublie le jeton.
 func (c *Client) Logout(ctx context.Context) error {
-	err := c.do(ctx, http.MethodPost, "/api/auth/logout", nil, nil)
+	err := c.do(ctx, http.MethodPost, "/auth/logout", nil, nil)
 	c.SetToken("")
 	return err
 }
 
-// ForgotPassword demande un code de réinitialisation.
 func (c *Client) ForgotPassword(ctx context.Context, email string) error {
-	return c.do(ctx, http.MethodPost, "/api/auth/password/forgot",
-		api.PasswordResetRequest{Email: email}, nil)
+	return c.do(ctx, http.MethodPost, "/auth/password/forgot",
+		map[string]string{"email": email}, nil)
 }
 
-// ResetPassword applique un nouveau mot de passe à partir d'un code de réinitialisation.
-func (c *Client) ResetPassword(ctx context.Context, email, code, newPassword string) error {
-	return c.do(ctx, http.MethodPost, "/api/auth/password/reset",
-		api.PasswordResetConfirm{Email: email, Code: code, NewPassword: newPassword}, nil)
+func (c *Client) ResetPassword(ctx context.Context, code, password string) error {
+	return c.do(ctx, http.MethodPost, "/auth/password/reset",
+		map[string]string{"code": code, "password": password}, nil)
 }
 
 // --- catalogue ---
 
-// ProductFilter reprend les paramètres de requête acceptés par GET /api/products avec des prix en centimes.
+// Filtres de GET /products. Prix en centimes ; une valeur vide ou 0 est ignorée.
 type ProductFilter struct {
-	Name        string
-	Description string
-	Category    string
-	MaxPriceTTC int64
-	Limit       int
+	Query    string
+	Category string
+	MinPrice int64
+	MaxPrice int64
+	MinTTC   int64
+	MaxTTC   int64
 }
 
-// Query convertit le filtre en paramètres d'URL, en ignorant les critères vides.
-func (f ProductFilter) Query() url.Values {
-	query := url.Values{}
-	if f.Name != "" {
-		query.Set("name", f.Name)
-	}
-	if f.Description != "" {
-		query.Set("description", f.Description)
+func (f ProductFilter) Values() url.Values {
+	values := url.Values{}
+	if f.Query != "" {
+		values.Set("q", f.Query)
 	}
 	if f.Category != "" {
-		query.Set("category", f.Category)
+		values.Set("category", f.Category)
 	}
-	if f.MaxPriceTTC > 0 {
-		query.Set("max_price_ttc", fmt.Sprint(f.MaxPriceTTC))
+	if f.MinPrice > 0 {
+		values.Set("min_price", fmt.Sprint(f.MinPrice))
 	}
-	if f.Limit > 0 {
-		query.Set("limit", fmt.Sprint(f.Limit))
+	if f.MaxPrice > 0 {
+		values.Set("max_price", fmt.Sprint(f.MaxPrice))
 	}
-	return query
+	if f.MinTTC > 0 {
+		values.Set("min_ttc", fmt.Sprint(f.MinTTC))
+	}
+	if f.MaxTTC > 0 {
+		values.Set("max_ttc", fmt.Sprint(f.MaxTTC))
+	}
+	return values
 }
 
-func (c *Client) SearchProduct(ctx context.Context, filter ProductFilter) ([]api.ProductDTO, error) {
-	var products []api.ProductDTO
-	err := c.do(ctx, http.MethodGet, "/api/products"+filter.Query().Encode(), nil, &products)
+func (c *Client) SearchProducts(ctx context.Context, filter ProductFilter) ([]Product, error) {
+	var products []Product
+	err := c.do(ctx, http.MethodGet, "/products?"+filter.Values().Encode(), nil, &products)
 	return products, err
 }
-
-
