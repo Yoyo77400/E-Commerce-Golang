@@ -32,6 +32,7 @@ func ValidateQuantity(quantity int) error {
 
 type CartItem struct {
 	ProductReference  string `json:"product_reference"`
+	Name              string `json:"name"`
 	Quantity          int    `json:"quantity"`
 	UnitPriceTTCCents int64  `json:"unit_price_ttc_cents"`
 }
@@ -116,7 +117,7 @@ func (s *Store) GetOpenCart(ctx context.Context, userID int64) (Cart, error) {
 	}
 
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT p.reference, ci.quantity, p.price_ttc_cents
+		`SELECT p.reference, p.name, ci.quantity, p.price_ttc_cents
 		FROM cart_items ci
 		JOIN carts c ON c.id = ci.cart_id
 		JOIN products p ON p.id = ci.product_id
@@ -132,7 +133,7 @@ func (s *Store) GetOpenCart(ctx context.Context, userID int64) (Cart, error) {
 	cart := Cart{Reference: reference, Items: []CartItem{}}
 	for rows.Next() {
 		var item CartItem
-		if err := rows.Scan(&item.ProductReference, &item.Quantity, &item.UnitPriceTTCCents); err != nil {
+		if err := rows.Scan(&item.ProductReference, &item.Name, &item.Quantity, &item.UnitPriceTTCCents); err != nil {
 			return Cart{}, fmt.Errorf("scan cart item: %w", err)
 		}
 		cart.Items = append(cart.Items, item)
