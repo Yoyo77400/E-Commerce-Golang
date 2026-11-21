@@ -176,3 +176,53 @@ func (s *Store) AddCartItem(ctx context.Context, userID int64, in AddCartItemInp
 	}
 	return s.GetOpenCart(ctx, userID)
 }
+
+// Remplace la quantité d'un produit du panier ouvert de l'utilisateur.
+// ErrNotFound si l'utilisateur n'a pas de panier ouvert ou si le produit n'y est pas.
+func (s *Store) SetCartItemQuantity(ctx context.Context, userID int64, productReference string, quantity int) (Cart, error) {
+	// UPDATE ... FROM : on retrouve la ligne grâce aux références (panier de l'utilisateur + produit).
+	result, err := s.db.ExecContext(ctx,
+		`UPDATE cart_items ci SET quantity = $3
+		FROM carts c, products p
+		WHERE ci.cart_id = c.id AND ci.product_id = p.id
+		AND c.user_id = $1 AND c.status = 'open' AND p.reference = $2`,
+		userID, productReference, quantity,
+	)
+	if err != nil {
+		return Cart{}, fmt.Errorf("update cart item: %w", err)
+	}
+
+	updated, err := result.RowsAffected()
+	if err != nil {
+		return Cart{}, fmt.Errorf("count updated items: %w", err)
+	}
+	if updated == 0 {
+		return Cart{}, ErrNotFound
+	}
+	return s.GetOpenCart(ctx, userID)
+}
+
+// Retire un produit du panier ouvert de l'utilisateur.
+// ErrNotFound si l'utilisateur n'a pas de panier ouvert ou si le produit n'y est pas.
+func (s *Store) RemoveCartItem(ctx context.Context, userID int64, productReference string) (Cart, error) {
+	// DELETE ... USING : même principe que UPDATE ... FROM.
+	result, err := s.db.ExecContext(ctx,
+		`DELETE FROM cart_items ci
+		USING carts c, products p
+		WHERE ci.cart_id = c.id AND ci.product_id = p.id
+		AND c.user_id = $1 AND c.status = 'open' AND p.reference = $2`,
+		userID, productReference,
+	)
+	if err != nil {
+		return Cart{}, fmt.Errorf("remove cart item: %w", err)
+	}
+
+	removed, err := result.RowsAffected()
+	if err != nil {
+		return Cart{}, fmt.Errorf("count removed items: %w", err)
+	}
+	if removed == 0 {
+		return Cart{}, ErrNotFound
+	}
+	return s.GetOpenCart(ctx, userID)
+}
