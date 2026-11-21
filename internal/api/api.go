@@ -28,6 +28,12 @@ func Register(mux *http.ServeMux, st *store.Store) {
 	mux.HandleFunc("POST /auth/logout", a.requireUser(a.logout))
 	mux.HandleFunc("GET /me", a.requireUser(a.me))
 
+	// Panier de l'utilisateur connecté
+	mux.HandleFunc("GET /cart", a.requireUser(a.getCart))
+	mux.HandleFunc("POST /cart/items", a.requireUser(a.addCartItem))
+	mux.HandleFunc("PATCH /cart/items/{reference}", a.requireUser(a.updateCartItem))
+	mux.HandleFunc("DELETE /cart/items/{reference}", a.requireUser(a.removeCartItem))
+
 	mux.HandleFunc("GET /products", a.listProducts)
 	mux.HandleFunc("GET /products/{reference}", a.getProduct)
 
