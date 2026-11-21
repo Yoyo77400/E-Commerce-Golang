@@ -60,3 +60,44 @@ func (a *API) addCartItem(w http.ResponseWriter, r *http.Request, user store.Use
 	}
 	writeCart(w, http.StatusOK, cart)
 }
+
+// PATCH /cart/items/{reference} {"quantity"}
+// Remplace la quantité du produit (pour le retirer : DELETE).
+func (a *API) updateCartItem(w http.ResponseWriter, r *http.Request, user store.User) {
+	var in struct {
+		Quantity int `json:"quantity"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	if err := store.ValidateQuantity(in.Quantity); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	cart, err := a.store.SetCartItemQuantity(r.Context(), user.ID, r.PathValue("reference"), in.Quantity)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "product not in cart")
+		return
+	}
+	if err != nil {
+		writeInternalError(w, err)
+		return
+	}
+	writeCart(w, http.StatusOK, cart)
+}
+
+// DELETE /cart/items/{reference}
+// Retire le produit du panier et renvoie le panier à jour.
+func (a *API) removeCartItem(w http.ResponseWriter, r *http.Request, user store.User) {
+	cart, err := a.store.RemoveCartItem(r.Context(), user.ID, r.PathValue("reference"))
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "product not in cart")
+		return
+	}
+	if err != nil {
+		writeInternalError(w, err)
+		return
+	}
+	writeCart(w, http.StatusOK, cart)
+}
