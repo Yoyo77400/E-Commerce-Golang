@@ -12,12 +12,20 @@ type AddCartItemInput struct {
 	Quantity         int    `json:"quantity"`
 }
 
+// Quantité maximale d'un produit par requête (évite de dépasser l'INT de PostgreSQL).
+const MaxItemQuantity = 100
+
 func (in AddCartItemInput) Validate() error {
 	if in.ProductReference == "" {
 		return errors.New("ProductReference est essentiel")
 	}
-	if in.Quantity < 1 {
-		return errors.New("Quantity doit être supérieur à 0")
+	return ValidateQuantity(in.Quantity)
+}
+
+// Vérifie qu'une quantité est comprise entre 1 et MaxItemQuantity.
+func ValidateQuantity(quantity int) error {
+	if quantity < 1 || quantity > MaxItemQuantity {
+		return fmt.Errorf("Quantity doit être entre 1 et %d", MaxItemQuantity)
 	}
 	return nil
 }
@@ -133,4 +141,38 @@ func (s *Store) GetOpenCart(ctx context.Context, userID int64) (Cart, error) {
 		return Cart{}, fmt.Errorf("read cart items: %w", err)
 	}
 	return cart, nil
+}
+
+// Ajoute un produit au panier ouvert de l'utilisateur (le panier est créé si besoin).
+// Si le produit est déjà dans le panier, on additionne les quantités.
+// ErrNotFound si le produit n'existe pas.
+func (s *Store) AddCartItem(ctx context.Context, userID int64, in AddCartItemInput) (Cart, error) {
+	reference, err := s.GetOrCreateOpenCartReference(ctx, userID)
+	if err != nil {
+		return Cart{}, err
+	}
+
+	// INSERT ... SELECT : la ligne n'est insérée que si le produit existe (sinon 0 ligne).
+	// ON CONFLICT : le produit est déjà dans ce panier, on augmente sa quantité.
+	result, err := s.db.ExecContext(ctx,
+		`INSERT INTO cart_items (cart_id, product_id, quantity)
+		SELECT c.id, p.id, $3
+		FROM carts c, products p
+		WHERE c.reference = $1 AND p.reference = $2
+		ON CONFLICT (cart_id, product_id)
+		DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity`,
+		reference, in.ProductReference, in.Quantity,
+	)
+	if err != nil {
+		return Cart{}, fmt.Errorf("add cart item: %w", err)
+	}
+
+	added, err := result.RowsAffected()
+	if err != nil {
+		return Cart{}, fmt.Errorf("count added items: %w", err)
+	}
+	if added == 0 {
+		return Cart{}, ErrNotFound
+	}
+	return s.GetOpenCart(ctx, userID)
 }
