@@ -183,3 +183,31 @@ func (c *Client) SearchProducts(ctx context.Context, filter ProductFilter) ([]Pr
 	err := c.do(ctx, http.MethodGet, "/products?"+filter.Values().Encode(), nil, &products)
 	return products, err
 }
+
+// --- panier (chaque route renvoie le panier complet à jour) ---
+
+func (c *Client) GetCart(ctx context.Context) (Cart, error) {
+	var cart Cart
+	err := c.do(ctx, http.MethodGet, "/cart", nil, &cart)
+	return cart, err
+}
+
+func (c *Client) AddCartItem(ctx context.Context, reference string, quantity int) (Cart, error) {
+	var cart Cart
+	err := c.do(ctx, http.MethodPost, "/cart/items",
+		map[string]any{"product_reference": reference, "quantity": quantity}, &cart)
+	return cart, err
+}
+
+func (c *Client) UpdateCartItem(ctx context.Context, reference string, quantity int) (Cart, error) {
+	var cart Cart
+	err := c.do(ctx, http.MethodPatch, "/cart/items/"+reference,
+		map[string]int{"quantity": quantity}, &cart)
+	return cart, err
+}
+
+func (c *Client) RemoveCartItem(ctx context.Context, reference string) (Cart, error) {
+	var cart Cart
+	err := c.do(ctx, http.MethodDelete, "/cart/items/"+reference, nil, &cart)
+	return cart, err
+}
