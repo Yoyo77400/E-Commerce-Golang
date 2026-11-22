@@ -21,6 +21,20 @@ type Product struct {
 	CreatedAt     time.Time `json:"created_at"`
 }
 
+// Réponse de toutes les routes /cart (api/carts.go, cartResponse)
+type Cart struct {
+	Reference     string     `json:"reference"`
+	Items         []CartItem `json:"items"`
+	TotalTTCCents int64      `json:"total_ttc_cents"`
+}
+
+type CartItem struct {
+	ProductReference  string `json:"product_reference"`
+	Name              string `json:"name"`
+	Quantity          int    `json:"quantity"`
+	UnitPriceTTCCents int64  `json:"unit_price_ttc_cents"`
+}
+
 // Réponse de POST /auth/login (api/auth.go:134)
 type LoginResponse struct {
 	Token string `json:"token"`
