@@ -169,8 +169,19 @@ func (m *Model) viewCatalog() string {
 // ---------- Écran détail ----------
 
 func (m *Model) updateProduct(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if key, ok := msg.(tea.KeyPressMsg); ok && key.String() == "esc" {
+	key, ok := msg.(tea.KeyPressMsg)
+	if !ok || m.loading {
+		return m, nil
+	}
+
+	switch key.String() {
+	case "esc":
+		m.info = ""
+		m.err = nil
 		m.screen = screenCatalog
+	case "a":
+		m.info = ""
+		return m, m.startLoading(m.addToCartCmd(m.selected.Reference))
 	}
 	return m, nil
 }
@@ -188,7 +199,12 @@ func (m *Model) viewProduct() string {
 	details += selectedStyle.Render("Prix TTC  : "+formatEuros(p.PriceTTCCents)) + "\n"
 	details += helpStyle.Render("Livraison gratuite")
 
-	return boxStyle.Render(details) + helpStyle.Render("\néchap retour au catalogue")
+	s := boxStyle.Render(details) + "\n"
+	if m.loading {
+		s += m.spinner.View() + " Ajout au panier…"
+	}
+	s += m.renderMessages()
+	return s + helpStyle.Render("a ajouter au panier • échap retour au catalogue")
 }
 
 // ---------- Conversions ----------
