@@ -33,6 +33,7 @@ func Register(mux *http.ServeMux, st *store.Store) {
 	mux.HandleFunc("POST /cart/items", a.requireUser(a.addCartItem))
 	mux.HandleFunc("PATCH /cart/items/{reference}", a.requireUser(a.updateCartItem))
 	mux.HandleFunc("DELETE /cart/items/{reference}", a.requireUser(a.removeCartItem))
+	mux.HandleFunc("POST /cart/pay", a.requireUser(a.payCart))
 
 	mux.HandleFunc("GET /products", a.listProducts)
 	mux.HandleFunc("GET /products/{reference}", a.getProduct)

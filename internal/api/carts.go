@@ -87,6 +87,30 @@ func (a *API) updateCartItem(w http.ResponseWriter, r *http.Request, user store.
 	writeCart(w, http.StatusOK, cart)
 }
 
+// POST /cart/pay {"card_number", "expiry", "cvc"}
+// Paie le panier ouvert et renvoie la référence de la commande créée.
+func (a *API) payCart(w http.ResponseWriter, r *http.Request, user store.User) {
+	var in store.PaymentInput
+	if !readJSON(w, r, &in) {
+		return
+	}
+	if err := in.Validate(); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	reference, err := a.store.PayCart(r.Context(), user.ID, in)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "cart is empty")
+		return
+	}
+	if err != nil {
+		writeInternalError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]string{"reference": reference})
+}
+
 // DELETE /cart/items/{reference}
 // Retire le produit du panier et renvoie le panier à jour.
 func (a *API) removeCartItem(w http.ResponseWriter, r *http.Request, user store.User) {

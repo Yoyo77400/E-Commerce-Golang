@@ -211,3 +211,13 @@ func (c *Client) RemoveCartItem(ctx context.Context, reference string) (Cart, er
 	err := c.do(ctx, http.MethodDelete, "/cart/items/"+reference, nil, &cart)
 	return cart, err
 }
+
+// Paie le panier ouvert et renvoie la référence de la commande créée
+func (c *Client) PayCart(ctx context.Context, cardNumber, expiry, cvc string) (string, error) {
+	var order struct {
+		Reference string `json:"reference"`
+	}
+	err := c.do(ctx, http.MethodPost, "/cart/pay",
+		map[string]string{"card_number": cardNumber, "expiry": expiry, "cvc": cvc}, &order)
+	return order.Reference, err
+}

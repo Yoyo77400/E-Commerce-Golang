@@ -51,6 +51,9 @@ type Model struct {
 	password        string
 	passwordConfirm string
 	code            string
+	cardNumber      string
+	cardExpiry      string
+	cardCVC         string
 
 	// Catalogue : filtres saisis (prix en euros, tels que tapés), résultats et produit ouvert
 	search   searchInputs
@@ -106,6 +109,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleProducts(msg)
 	case cartResultMsg:
 		return m.handleCart(msg)
+	case payResultMsg:
+		return m.handlePay(msg)
 	case loginResultMsg:
 		return m.handleLogin(msg)
 	case registerResultMsg:
@@ -169,6 +174,7 @@ func (m *Model) goHome() {
 // Vide les saisies et les messages avant d'ouvrir un nouveau parcours depuis un menu
 func (m *Model) resetInputs() {
 	m.email, m.password, m.passwordConfirm, m.code = "", "", "", ""
+	m.cardNumber, m.cardExpiry, m.cardCVC = "", "", ""
 	m.err = nil
 	m.info = ""
 }

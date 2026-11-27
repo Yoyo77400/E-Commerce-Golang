@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 
 	"github.com/yoyo77400/E-Commerce-Golang/internal/apiclient"
 )
@@ -14,6 +15,11 @@ type cartResultMsg struct {
 	cart apiclient.Cart
 	info string // message affiché en cas de succès
 	err  error
+}
+
+type payResultMsg struct {
+	reference string
+	err       error
 }
 
 func (m *Model) openCart() tea.Cmd {
@@ -94,6 +100,9 @@ func (m *Model) updateCart(msg tea.Msg) (tea.Model, tea.Cmd) {
 		quantity--
 	case "delete", "x":
 		quantity = 0
+	case "p":
+		m.resetInputs()
+		return m, m.openPayment()
 	default:
 		return m, nil
 	}
@@ -122,5 +131,39 @@ func (m *Model) viewCart() string {
 	s += "\n" + selectedStyle.Render("Total TTC : "+formatEuros(m.cart.TotalTTCCents)) + "\n"
 	s += helpStyle.Render("Livraison gratuite")
 	s += m.renderMessages()
-	return s + helpStyle.Render("↑/↓ naviguer • +/- quantité • x retirer • échap menu")
+	return s + helpStyle.Render("↑/↓ naviguer • +/- quantité • x retirer • p payer • échap menu")
+}
+
+// ---------- Paiement ----------
+
+func (m *Model) openPayment() tea.Cmd {
+	return m.openForm("Paiement — "+formatEuros(m.cart.TotalTTCCents), screenCart, m.payCmd,
+		huh.NewInput().Title("Numéro de carte").Placeholder("16 chiffres").Value(&m.cardNumber),
+		huh.NewInput().Title("Date d'expiration").Placeholder("MM/AA").Value(&m.cardExpiry),
+		passwordField("CVC", &m.cardCVC),
+	)
+}
+
+func (m *Model) payCmd() tea.Cmd {
+	api, number, expiry, cvc := m.api, m.cardNumber, m.cardExpiry, m.cardCVC
+	return func() tea.Msg {
+		reference, err := api.PayCart(context.Background(), number, expiry, cvc)
+		return payResultMsg{reference: reference, err: err}
+	}
+}
+
+// En cas d'erreur, on rouvre le formulaire (les saisies sont conservées) avec le message.
+// En cas de succès, le panier payé est clôturé côté serveur : on affiche un panier vide.
+func (m *Model) handlePay(msg payResultMsg) (tea.Model, tea.Cmd) {
+	m.loading = false
+	if msg.err != nil {
+		m.err = msg.err
+		return m, m.openPayment()
+	}
+	m.resetInputs()
+	m.cart = apiclient.Cart{}
+	m.cursor = 0
+	m.screen = screenCart
+	m.info = "Paiement accepté, commande " + msg.reference + "."
+	return m, nil
 }
