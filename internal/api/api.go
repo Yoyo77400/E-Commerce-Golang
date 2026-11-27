@@ -35,6 +35,9 @@ func Register(mux *http.ServeMux, st *store.Store) {
 	mux.HandleFunc("DELETE /cart/items/{reference}", a.requireUser(a.removeCartItem))
 	mux.HandleFunc("POST /cart/pay", a.requireUser(a.payCart))
 
+	// Commandes de l'utilisateur connecté
+	mux.HandleFunc("GET /orders", a.requireUser(a.listOrders))
+
 	mux.HandleFunc("GET /products", a.listProducts)
 	mux.HandleFunc("GET /products/{reference}", a.getProduct)
 

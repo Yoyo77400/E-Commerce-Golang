@@ -54,6 +54,10 @@ func (a *API) addCartItem(w http.ResponseWriter, r *http.Request, user store.Use
 		writeError(w, http.StatusNotFound, "product not found")
 		return
 	}
+	if errors.Is(err, store.ErrQuantityLimit) {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if err != nil {
 		writeInternalError(w, err)
 		return

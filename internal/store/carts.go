@@ -12,8 +12,10 @@ type AddCartItemInput struct {
 	Quantity         int    `json:"quantity"`
 }
 
-// Quantité maximale d'un produit par requête (évite de dépasser l'INT de PostgreSQL).
+// Quantité maximale d'un produit dans le panier (évite de dépasser l'INT de PostgreSQL).
 const MaxItemQuantity = 100
+
+var ErrQuantityLimit = fmt.Errorf("Quantity ne peut pas dépasser %d par produit", MaxItemQuantity)
 
 func (in AddCartItemInput) Validate() error {
 	if in.ProductReference == "" {
@@ -146,7 +148,7 @@ func (s *Store) GetOpenCart(ctx context.Context, userID int64) (Cart, error) {
 
 // Ajoute un produit au panier ouvert de l'utilisateur (le panier est créé si besoin).
 // Si le produit est déjà dans le panier, on additionne les quantités.
-// ErrNotFound si le produit n'existe pas.
+// ErrNotFound si le produit n'existe pas, ErrQuantityLimit si le cumul dépasse MaxItemQuantity.
 func (s *Store) AddCartItem(ctx context.Context, userID int64, in AddCartItemInput) (Cart, error) {
 	reference, err := s.GetOrCreateOpenCartReference(ctx, userID)
 	if err != nil {
@@ -154,15 +156,17 @@ func (s *Store) AddCartItem(ctx context.Context, userID int64, in AddCartItemInp
 	}
 
 	// INSERT ... SELECT : la ligne n'est insérée que si le produit existe (sinon 0 ligne).
-	// ON CONFLICT : le produit est déjà dans ce panier, on augmente sa quantité.
+	// ON CONFLICT : le produit est déjà dans ce panier, on augmente sa quantité
+	// sauf si le cumul dépasse la limite (sinon 0 ligne).
 	result, err := s.db.ExecContext(ctx,
 		`INSERT INTO cart_items (cart_id, product_id, quantity)
 		SELECT c.id, p.id, $3
 		FROM carts c, products p
 		WHERE c.reference = $1 AND p.reference = $2
 		ON CONFLICT (cart_id, product_id)
-		DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity`,
-		reference, in.ProductReference, in.Quantity,
+		DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity
+		WHERE cart_items.quantity + EXCLUDED.quantity <= $4`,
+		reference, in.ProductReference, in.Quantity, MaxItemQuantity,
 	)
 	if err != nil {
 		return Cart{}, fmt.Errorf("add cart item: %w", err)
@@ -173,7 +177,11 @@ func (s *Store) AddCartItem(ctx context.Context, userID int64, in AddCartItemInp
 		return Cart{}, fmt.Errorf("count added items: %w", err)
 	}
 	if added == 0 {
-		return Cart{}, ErrNotFound
+		// Produit inexistant ou limite atteinte : on regarde lequel des deux.
+		if _, err := s.GetProduct(ctx, in.ProductReference); err != nil {
+			return Cart{}, err
+		}
+		return Cart{}, ErrQuantityLimit
 	}
 	return s.GetOpenCart(ctx, userID)
 }

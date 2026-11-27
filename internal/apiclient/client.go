@@ -145,14 +145,14 @@ func (c *Client) ResetPassword(ctx context.Context, code, password string) error
 
 // --- catalogue ---
 
-// Filtres de GET /products. Prix en centimes ; une valeur vide ou 0 est ignorée.
+// Filtres de GET /products. Prix en centimes ; une chaîne vide ou un prix nil est ignoré.
 type ProductFilter struct {
 	Query    string
 	Category string
-	MinPrice int64
-	MaxPrice int64
-	MinTTC   int64
-	MaxTTC   int64
+	MinPrice *int64
+	MaxPrice *int64
+	MinTTC   *int64
+	MaxTTC   *int64
 }
 
 func (f ProductFilter) Values() url.Values {
@@ -163,17 +163,17 @@ func (f ProductFilter) Values() url.Values {
 	if f.Category != "" {
 		values.Set("category", f.Category)
 	}
-	if f.MinPrice > 0 {
-		values.Set("min_price", fmt.Sprint(f.MinPrice))
+	if f.MinPrice != nil {
+		values.Set("min_price", fmt.Sprint(*f.MinPrice))
 	}
-	if f.MaxPrice > 0 {
-		values.Set("max_price", fmt.Sprint(f.MaxPrice))
+	if f.MaxPrice != nil {
+		values.Set("max_price", fmt.Sprint(*f.MaxPrice))
 	}
-	if f.MinTTC > 0 {
-		values.Set("min_ttc", fmt.Sprint(f.MinTTC))
+	if f.MinTTC != nil {
+		values.Set("min_ttc", fmt.Sprint(*f.MinTTC))
 	}
-	if f.MaxTTC > 0 {
-		values.Set("max_ttc", fmt.Sprint(f.MaxTTC))
+	if f.MaxTTC != nil {
+		values.Set("max_ttc", fmt.Sprint(*f.MaxTTC))
 	}
 	return values
 }
@@ -220,4 +220,12 @@ func (c *Client) PayCart(ctx context.Context, cardNumber, expiry, cvc string) (s
 	err := c.do(ctx, http.MethodPost, "/cart/pay",
 		map[string]string{"card_number": cardNumber, "expiry": expiry, "cvc": cvc}, &order)
 	return order.Reference, err
+}
+
+// --- commandes ---
+
+func (c *Client) ListOrders(ctx context.Context) ([]Order, error) {
+	var orders []Order
+	err := c.do(ctx, http.MethodGet, "/orders", nil, &orders)
+	return orders, err
 }

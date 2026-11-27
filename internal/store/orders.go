@@ -14,6 +14,18 @@ var (
 	cvcPattern        = regexp.MustCompile(`^[0-9]{3}$`)
 )
 
+type Order struct {
+	Reference    string     `json:"reference"`
+	Status       string     `json:"status"`
+	CancelReason *string    `json:"cancel_reason"`
+	CreatedAt    time.Time  `json:"created_at"`
+	Items        []CartItem `json:"items"`
+}
+
+func (o Order) TotalTTCCents() int64 {
+	return Cart{Items: o.Items}.TotalTTCCents()
+}
+
 // Informations bancaires saisies pour payer le panier
 type PaymentInput struct {
 	CardNumber string `json:"card_number"`
@@ -104,4 +116,46 @@ func (s *Store) PayCart(ctx context.Context, userID int64, in PaymentInput) (str
 		return "", fmt.Errorf("commit payment: %w", err)
 	}
 	return reference, nil
+}
+
+// Commandes de l'utilisateur, de la plus récente à la plus ancienne.
+// Le prix TTC est recalculé à partir du prix et de la TVA figés au paiement.
+func (s *Store) ListUserOrders(ctx context.Context, userID int64) ([]Order, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT o.reference, o.status, o.cancel_reason, o.created_at,
+			p.reference, p.name, oi.quantity,
+			(oi.unit_price_cents * (10000 + oi.vat_rate_bp) + 5000) / 10000
+		FROM orders o
+		JOIN order_items oi ON oi.order_id = o.id
+		JOIN products p ON p.id = oi.product_id
+		WHERE o.user_id = $1
+		ORDER BY o.created_at DESC, o.id DESC, p.reference`,
+		userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list orders: %w", err)
+	}
+	defer rows.Close()
+
+	orders := []Order{}
+	for rows.Next() {
+		var o Order
+		var item CartItem
+		err := rows.Scan(&o.Reference, &o.Status, &o.CancelReason, &o.CreatedAt,
+			&item.ProductReference, &item.Name, &item.Quantity, &item.UnitPriceTTCCents)
+		if err != nil {
+			return nil, fmt.Errorf("scan order: %w", err)
+		}
+		// Les lignes d'une même commande se suivent : on les regroupe.
+		if n := len(orders); n > 0 && orders[n-1].Reference == o.Reference {
+			orders[n-1].Items = append(orders[n-1].Items, item)
+			continue
+		}
+		o.Items = []CartItem{item}
+		orders = append(orders, o)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list orders: %w", err)
+	}
+	return orders, nil
 }

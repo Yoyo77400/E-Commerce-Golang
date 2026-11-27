@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -84,6 +85,11 @@ func (a *API) createProduct(w http.ResponseWriter, r *http.Request, _ store.User
 	}
 	if in.PriceCents < 0 || in.VATRateBP < 0 {
 		writeError(w, http.StatusBadRequest, "price_cents and vat_rate_bp must be positive")
+		return
+	}
+	if in.PriceCents > store.MaxPriceCents || in.VATRateBP > store.MaxVATRateBP {
+		writeError(w, http.StatusBadRequest,
+			fmt.Sprintf("price_cents must not exceed %d and vat_rate_bp %d", store.MaxPriceCents, store.MaxVATRateBP))
 		return
 	}
 

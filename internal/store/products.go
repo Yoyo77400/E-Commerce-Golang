@@ -107,6 +107,12 @@ func (s *Store) GetProduct(ctx context.Context, reference string) (Product, erro
 	return p, nil
 }
 
+// Bornes qui évitent un dépassement de capacité en base (prix TTC en BIGINT, TVA en INT).
+const (
+	MaxPriceCents = 1_000_000_000 // 10 000 000 €
+	MaxVATRateBP  = 10_000        // 100 %
+)
+
 // Champs saisis par l'admin pour créer un produit
 type ProductInput struct {
 	Name        string `json:"name"`

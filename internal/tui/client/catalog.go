@@ -108,9 +108,16 @@ func newProductTable() table.Model {
 	styles := table.DefaultStyles()
 	styles.Selected = styles.Selected.Foreground(lipgloss.Color("#EE6FF8")).Bold(true)
 
+	// Sans largeur, le tableau n'affiche aucune ligne.
+	width := 0
+	for _, column := range columns {
+		width += column.Width + styles.Cell.GetHorizontalFrameSize()
+	}
+
 	return table.New(
 		table.WithColumns(columns),
 		table.WithHeight(tableHeight),
+		table.WithWidth(width),
 		table.WithFocused(true),
 		table.WithStyles(styles),
 	)
@@ -209,7 +216,7 @@ func (m *Model) viewProduct() string {
 
 // ---------- Conversions ----------
 
-// "19,99" ou "19.99" -> 1999 centimes. Une saisie vide vaut 0 (= filtre ignoré).
+// "19,99" ou "19.99" -> 1999 centimes. Une saisie vide vaut 0.
 func parseEuros(s string) (int64, error) {
 	s = strings.TrimSpace(strings.ReplaceAll(s, ",", "."))
 	if s == "" {
@@ -220,6 +227,18 @@ func parseEuros(s string) (int64, error) {
 		return 0, errors.New("montant invalide (exemple : 19,99)")
 	}
 	return int64(math.Round(value * centsPerEuro)), nil
+}
+
+// Prix de filtre : nil si la saisie est vide, pour distinguer "ignoré" de 0 €.
+func optionalEuros(s string) (*int64, error) {
+	if strings.TrimSpace(s) == "" {
+		return nil, nil
+	}
+	cents, err := parseEuros(s)
+	if err != nil {
+		return nil, err
+	}
+	return &cents, nil
 }
 
 // 1999 -> "19,99 €"
@@ -233,19 +252,19 @@ func formatVAT(basisPoints int) string {
 }
 
 func (s searchInputs) toFilter() (apiclient.ProductFilter, error) {
-	minPrice, err := parseEuros(s.minPrice)
+	minPrice, err := optionalEuros(s.minPrice)
 	if err != nil {
 		return apiclient.ProductFilter{}, err
 	}
-	maxPrice, err := parseEuros(s.maxPrice)
+	maxPrice, err := optionalEuros(s.maxPrice)
 	if err != nil {
 		return apiclient.ProductFilter{}, err
 	}
-	minTTC, err := parseEuros(s.minTTC)
+	minTTC, err := optionalEuros(s.minTTC)
 	if err != nil {
 		return apiclient.ProductFilter{}, err
 	}
-	maxTTC, err := parseEuros(s.maxTTC)
+	maxTTC, err := optionalEuros(s.maxTTC)
 	if err != nil {
 		return apiclient.ProductFilter{}, err
 	}

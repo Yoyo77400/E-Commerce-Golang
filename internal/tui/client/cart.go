@@ -120,8 +120,7 @@ func (m *Model) viewCart() string {
 		s += "Votre panier est vide.\n"
 	}
 	for i, item := range m.cart.Items {
-		subtotal := item.UnitPriceTTCCents * int64(item.Quantity)
-		line := fmt.Sprintf("%-26s x%-3d %12s", item.Name, item.Quantity, formatEuros(subtotal))
+		line := formatItemLine(item)
 		if i == m.cursor {
 			s += selectedStyle.Render("> "+line) + "\n"
 		} else {
@@ -132,6 +131,11 @@ func (m *Model) viewCart() string {
 	s += helpStyle.Render("Livraison gratuite")
 	s += m.renderMessages()
 	return s + helpStyle.Render("↑/↓ naviguer • +/- quantité • x retirer • p payer • échap menu")
+}
+
+func formatItemLine(item apiclient.CartItem) string {
+	subtotal := item.UnitPriceTTCCents * int64(item.Quantity)
+	return fmt.Sprintf("%-26s x%-3d %12s", item.Name, item.Quantity, formatEuros(subtotal))
 }
 
 // ---------- Paiement ----------

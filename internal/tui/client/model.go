@@ -19,6 +19,7 @@ const (
 	screenCatalog = "catalog"
 	screenProduct = "product"
 	screenCart    = "cart"
+	screenOrders  = "orders"
 )
 
 const (
@@ -29,11 +30,12 @@ const (
 	choiceQuit     = "Quitter"
 	choiceCatalog  = "Catalogue"
 	choiceCart     = "Mon panier"
+	choiceOrders   = "Mes commandes"
 	choiceLogout   = "Se déconnecter"
 )
 
 var homeChoices = []string{choiceLogin, choiceRegister, choiceConfirm, choiceForgot, choiceQuit}
-var menuChoices = []string{choiceCatalog, choiceCart, choiceLogout}
+var menuChoices = []string{choiceCatalog, choiceCart, choiceOrders, choiceLogout}
 
 type Model struct {
 	api    *apiclient.Client
@@ -61,7 +63,8 @@ type Model struct {
 	table    table.Model
 	selected apiclient.Product
 
-	cart apiclient.Cart
+	cart   apiclient.Cart
+	orders []apiclient.Order
 
 	user    apiclient.User
 	loading bool
@@ -111,6 +114,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleCart(msg)
 	case payResultMsg:
 		return m.handlePay(msg)
+	case ordersResultMsg:
+		return m.handleOrders(msg)
 	case loginResultMsg:
 		return m.handleLogin(msg)
 	case registerResultMsg:
@@ -140,6 +145,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateProduct(msg)
 	case screenCart:
 		return m.updateCart(msg)
+	case screenOrders:
+		return m.updateOrders(msg)
 	}
 	return m, nil
 }
@@ -159,6 +166,8 @@ func (m *Model) View() tea.View {
 		content = m.viewProduct()
 	case screenCart:
 		content = m.viewCart()
+	case screenOrders:
+		content = m.viewOrders()
 	}
 
 	view := tea.NewView(appStyle.Render(content))
@@ -282,6 +291,8 @@ func (m *Model) updateMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.openCatalog()
 		case choiceCart:
 			return m, m.openCart()
+		case choiceOrders:
+			return m, m.openOrders()
 		case choiceLogout:
 			return m, m.logoutCmd()
 		}

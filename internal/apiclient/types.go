@@ -35,6 +35,16 @@ type CartItem struct {
 	UnitPriceTTCCents int64  `json:"unit_price_ttc_cents"`
 }
 
+// Réponse de GET /orders (api/orders.go, orderResponse)
+type Order struct {
+	Reference     string     `json:"reference"`
+	Status        string     `json:"status"`
+	CancelReason  *string    `json:"cancel_reason"`
+	CreatedAt     time.Time  `json:"created_at"`
+	Items         []CartItem `json:"items"`
+	TotalTTCCents int64      `json:"total_ttc_cents"`
+}
+
 // Réponse de POST /auth/login (api/auth.go:134)
 type LoginResponse struct {
 	Token string `json:"token"`
